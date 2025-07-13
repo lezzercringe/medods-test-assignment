@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:17.5
+    hostname: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=password
+  
+  api:
+    build:
+      context: .
+      dockerfile: ./deployments/service/Dockerfile
+    ports:
+      - ${APP_PORT}:3000
+    depends_on:
+      migrations_runner:
+        condition: service_completed_successfully
+
+  migrations_runner:
+    build:
+      context: .
+      dockerfile: ./deployments/migrations-runner/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - GOOSE_DRIVER=postgres
+      - GOOSE_DBSTRING=postgres://postgres:password@postgres:5432/postgres
+
+volumes:
+  postgres_data:

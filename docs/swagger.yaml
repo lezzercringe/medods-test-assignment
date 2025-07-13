@@ -1,0 +1,217 @@
+definitions:
+  api.ErrorResponse:
+    description: Standardized API error response
+    properties:
+      fields:
+        description: '@Description Array of field-specific validation errors (only
+          present for validation errors)'
+        items:
+          $ref: '#/definitions/api.FieldError'
+        type: array
+      message:
+        description: |-
+          @Description General error message describing the error
+          @example validation error
+        type: string
+    type: object
+  api.FieldError:
+    description: Field-specific validation error
+    properties:
+      field:
+        description: |-
+          @Description Name of the field with error
+          @example user_id
+        type: string
+      message:
+        description: |-
+          @Description Error message for the field
+          @example required, but missing
+        type: string
+    type: object
+  api.LoginDTO:
+    description: Login request payload
+    properties:
+      user_id:
+        description: "@Description\tUnique identifier for the user\n\t@example\t\t73c954ad-f723-48f4-a76c-d3c29c0cd135"
+        type: string
+    required:
+    - user_id
+    type: object
+  api.LoginResponse:
+    description: Login response
+    properties:
+      access_token:
+        description: "@Description\tJWT access token for authentication\n\t@example\t\teyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        type: string
+      refresh_token:
+        description: "@Description\tBase64 encoded refresh token\n\t@example\t\tdGVzdC1yZWZyZXNoLXRva2Vu"
+        type: string
+    type: object
+  api.RefreshDTO:
+    description: Refresh token request payload
+    properties:
+      access_token:
+        description: "@Description\tCurrent JWT access token\n\t@example\t\teyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        type: string
+      refresh_token:
+        description: "@Description\tBase64 encoded refresh token\n\t@example\t\tdGVzdC1yZWZyZXNoLXRva2Vu"
+        type: string
+    required:
+    - access_token
+    - refresh_token
+    type: object
+  api.RefreshResponse:
+    description: Refresh token response
+    properties:
+      access_token:
+        description: "@Description\tNew JWT access token\n\t@example\t\teyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        type: string
+      refresh_token:
+        description: "@Description\tNew base64 encoded refresh token\n\t@example\t\tdGVzdC1yZWZyZXNoLXRva2Vu"
+        type: string
+    type: object
+  api.UserResponse:
+    description: User information response
+    properties:
+      user_id:
+        description: "@Description\tUnique identifier of the authenticated user\n\t@example\t\t73c954ad-f723-48f4-a76c-d3c29c0cd135"
+        type: string
+    type: object
+  api.ValidationError:
+    description: Validation error response containing multiple field errors
+    properties:
+      fields:
+        description: '@Description Array of field validation errors'
+        items:
+          $ref: '#/definitions/api.FieldError'
+        type: array
+    type: object
+info:
+  contact: {}
+  title: Auth Service API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user by their UUID
+      parameters:
+      - description: User credentials containing user_id
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.LoginDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully authenticated - returns access and refresh tokens
+          schema:
+            $ref: '#/definitions/api.LoginResponse'
+        "400":
+          description: Validation error - missing or invalid user_id field
+          schema:
+            $ref: '#/definitions/api.ValidationError'
+        "500":
+          description: Internal server error - database or service failure
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Authenticate user
+      tags:
+      - authentication
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logs out the user and revokes their access and refresh tokens.
+        The session is marked as revoked and tokens are added to the revocation list.
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No content - successfully logged out and tokens revoked
+        "401":
+          description: Unauthorized - invalid or missing access token
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error - database or service failure
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout user and revoke tokens
+      tags:
+      - authentication
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refreshes the access token using a valid, co-issued token pair
+      parameters:
+      - description: Refresh token request containing access and refresh tokens
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.RefreshDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully refreshed token pair - returns new access and
+            refresh tokens
+          schema:
+            $ref: '#/definitions/api.RefreshResponse'
+        "400":
+          description: Validation error - missing tokens, invalid base64 encoding,
+            or malformed request
+          schema:
+            $ref: '#/definitions/api.ValidationError'
+        "401":
+          description: Authentication error - expired tokens, revoked session, or
+            invalid credentials
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden - suspicious activity detected (different user agent)
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error - database or service failure
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Refresh token pair
+      tags:
+      - authentication
+  /user:
+    get:
+      consumes:
+      - application/json
+      description: Returns information about the currently authenticated user based
+        on the access token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User information retrieved successfully - returns user_id
+          schema:
+            $ref: '#/definitions/api.UserResponse'
+        "401":
+          description: Unauthorized - invalid, expired, or revoked access token
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user information
+      tags:
+      - user
+securityDefinitions:
+  BearerAuth:
+    description: 'Format: Bearer <token>'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

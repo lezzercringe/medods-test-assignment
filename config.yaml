@@ -1,0 +1,13 @@
+api:
+  addr: ":3000"
+  timeout: 1s
+postgres:
+  conn_string: postgres://postgres:password@postgres:5432/postgres
+jwt:
+  access_ttl: 1h
+  refresh_ttl: 72h
+  secret: SOME_SECRET
+ip_webhook:
+  url: http://localhost:3001/wh
+  retries: 3
+  timeout: 10s
